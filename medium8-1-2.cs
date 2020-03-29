@@ -1,87 +1,128 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Task
 {
-    class Program
+    internal class Program
     {
+        internal const int MAGIC_INT = 21;
+
         public static void Main(string[] args)
         {
-            int obj1x = 5;
-            int obj1y = 5;
-            bool isalive1 = true;
-            int obj2x = 10;
-            int obj2y = 10;
-            bool isalive2 = true;
-            int obj3x = 15;
-            int obj3y = 15;
-            bool isalive3 = true;
+            var random = new Random();
 
-            Random random = new Random();
-
-            while (true)
+            for (int i = 0; i < MAGIC_INT; i++)
             {
-                if (obj1x == obj2x && obj1y == obj2y)
+                var runners = new List<Runner>()
                 {
-                    isalive1 = false;
-                    isalive2 = false;
+                    new Runner(5, 5),
+                    new Runner(10, 10),
+                    new Runner(15, 15),
+                    new Runner(random),
+                };
+
+                while (runners.FirstOrDefault(runner => runner.IsAlive) != null)
+                {
+                    runners.CompareRunners();
+                    runners.ForEach(runner =>
+                    {
+                        runner.TryMove(random);
+                        runner.ThrowXY((x, y) =>
+                        {
+                            Console.SetCursorPosition(x, y);
+                            Console.Write(runners.IndexOf(runner));
+                        });
+                    });
                 }
 
-                if (obj1x == obj3x && obj1y == obj3y)
+                Console.SetCursorPosition(0, 0);
+                Console.ReadKey();
+                Console.Clear();
+            }
+        }
+    }
+
+    internal class Runner : IDisposable
+    {
+        internal bool IsAlive { get; private set; }
+
+        private int x;
+        private int y;
+
+        public Runner(int x, int y)
+        {
+            this.x = x;
+            this.y = y;
+            IsAlive = true;
+        }
+
+        public Runner(Random random) : this(random.Next(0, Program.MAGIC_INT), random.Next(0, Program.MAGIC_INT))
+        {
+        }
+
+        internal bool Compare(Runner otherRunner)
+        {
+            return x == otherRunner.x && y == otherRunner.y;
+        }
+
+        internal bool TryMove(Random random)
+        {
+            if (IsAlive)
+            {
+                if (x == 0 && y == 0)
                 {
-                    isalive1 = false;
-                    isalive3 = false;
+                    IsAlive = false;
+                    return false;
                 }
 
-                if (obj2x == obj3x && obj2y == obj3y)
+                var prevX = x;
+                var prevY = y;
+
+                x = Math.Max(0, x + random.Next(-1, 1));
+                y = Math.Max(0, y + random.Next(-1, 1));
+
+                return prevX != x || prevY != y;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        internal void ThrowXY(Action<int, int> action)
+        {
+            if (IsAlive)
+            {
+                action?.Invoke(x, y);
+            }
+        }
+
+        public void Dispose()
+        {
+            IsAlive = false;
+        }
+    }
+
+    internal static class ExtensionsRunner
+    {
+        internal static void CompareRunners(this IEnumerable<Runner> runners)
+        {
+            var countRunners = runners.Count();
+
+            for (int i = 0; i < countRunners; i++)
+            {
+                var runner = runners.ElementAt(i);
+
+                for (int j = i + 1; j < countRunners; j++)
                 {
-                    isalive2 = false;
-                    isalive3 = false;
-                }
+                    var otherRunner = runners.ElementAt(j);
 
-                obj1x += random.Next(-1, 1);
-                obj1y += random.Next(-1, 1);
-
-                obj2x += random.Next(-1, 1);
-                obj2y += random.Next(-1, 1);
-
-                obj3x += random.Next(-1, 1);
-                obj3y += random.Next(-1, 1);
-
-                if (obj1x < 0)
-                    obj1x = 0;
-
-                if (obj1y < 0)
-                    obj1y = 0;
-
-                if (obj2x < 0)
-                    obj2x = 0;
-
-                if (obj2y < 0)
-                    obj2y = 0;
-
-                if (obj3x < 0)
-                    obj3x = 0;
-
-                if (obj3y < 0)
-                    obj3y = 0;
-
-                if (isalive1)
-                {
-                    Console.SetCursorPosition(obj1x, obj1y);
-                    Console.Write("1");
-                }
-
-                if (isalive2)
-                {
-                    Console.SetCursorPosition(obj2x, obj2y);
-                    Console.Write("2");
-                }
-
-                if (isalive3)
-                {
-                    Console.SetCursorPosition(obj3x, obj3y);
-                    Console.Write("3");
+                    if ((runner.IsAlive || otherRunner.IsAlive) && runner.Compare(otherRunner))
+                    {
+                        runner.Dispose();
+                        otherRunner.Dispose();
+                    }
                 }
             }
         }
