@@ -6,34 +6,36 @@ namespace Task
 {
     internal class Program
     {
-        internal const int MAGIC_INT = 21;
+        internal const int MagicInt = 21;
 
         public static void Main(string[] args)
         {
             var random = new Random();
 
-            for (int i = 0; i < MAGIC_INT; i++)
+            for (var i = 0; i < MagicInt; i++)
             {
                 var runners = new List<Runner>()
                 {
-                    new Runner(5, 5),
-                    new Runner(10, 10),
-                    new Runner(15, 15),
-                    new Runner(random),
+                    Runner.FromPosition(5, 5),
+                    Runner.FromPosition(10, 10),
+                    Runner.FromPosition(15, 15),
+                    Runner.FromRandom(random),
                 };
 
                 while (runners.FirstOrDefault(runner => runner.IsAlive) != null)
                 {
-                    runners.CompareRunners();
-                    runners.ForEach(runner =>
-                    {
-                        runner.TryMove(random);
-                        runner.ThrowXY((x, y) =>
+                    runners
+                        .CompareRunners()
+                        .Where(runner => runner.IsAlive)
+                        .Each(runner =>
                         {
-                            Console.SetCursorPosition(x, y);
-                            Console.Write(runners.IndexOf(runner));
+                            runner.TryMove(random);
+                            runner.DoActionAtCurrentPosition((x, y) =>
+                            {
+                                Console.SetCursorPosition(x, y);
+                                Console.Write(runners.IndexOf(runner));
+                            });
                         });
-                    });
                 }
 
                 Console.SetCursorPosition(0, 0);
@@ -47,54 +49,54 @@ namespace Task
     {
         internal bool IsAlive { get; private set; }
 
-        private int x;
-        private int y;
+        private int _x;
+        private int _y;
 
-        public Runner(int x, int y)
+        internal static Runner FromPosition(int x, int y)
         {
-            this.x = x;
-            this.y = y;
+            var runner = new Runner();
+            runner._x = x;
+            runner._y = y;
+            return runner;
+        }
+
+        internal static Runner FromRandom(Random random)
+        {
+            return FromPosition(random.Next(0, Program.MagicInt), random.Next(0, Program.MagicInt));
+        }
+
+        private Runner()
+        {
             IsAlive = true;
         }
 
-        public Runner(Random random) : this(random.Next(0, Program.MAGIC_INT), random.Next(0, Program.MAGIC_INT))
+        internal bool HaveSimilarPosition(Runner otherRunner)
         {
-        }
-
-        internal bool Compare(Runner otherRunner)
-        {
-            return x == otherRunner.x && y == otherRunner.y;
+            return _x == otherRunner._x && _y == otherRunner._y;
         }
 
         internal bool TryMove(Random random)
         {
-            if (IsAlive)
+            if (_x == 0 && _y == 0)
             {
-                if (x == 0 && y == 0)
-                {
-                    IsAlive = false;
-                    return false;
-                }
-
-                var prevX = x;
-                var prevY = y;
-
-                x = Math.Max(0, x + random.Next(-1, 1));
-                y = Math.Max(0, y + random.Next(-1, 1));
-
-                return prevX != x || prevY != y;
-            }
-            else
-            {
+                IsAlive = false;
                 return false;
             }
+
+            var prevX = _x;
+            var prevY = _y;
+
+            _x = Math.Max(0, _x + random.Next(-1, 1));
+            _y = Math.Max(0, _y + random.Next(-1, 1));
+
+            return prevX != _x || prevY != _y;
         }
 
-        internal void ThrowXY(Action<int, int> action)
+        internal void DoActionAtCurrentPosition(Action<int, int> action)
         {
             if (IsAlive)
             {
-                action?.Invoke(x, y);
+                action?.Invoke(_x, _y);
             }
         }
 
@@ -104,9 +106,9 @@ namespace Task
         }
     }
 
-    internal static class ExtensionsRunner
+    internal static class Extensions
     {
-        internal static void CompareRunners(this IEnumerable<Runner> runners)
+        internal static IEnumerable<Runner> CompareRunners(this IEnumerable<Runner> runners)
         {
             var countRunners = runners.Count();
 
@@ -118,13 +120,23 @@ namespace Task
                 {
                     var otherRunner = runners.ElementAt(j);
 
-                    if ((runner.IsAlive || otherRunner.IsAlive) && runner.Compare(otherRunner))
+                    if ((runner.IsAlive || otherRunner.IsAlive) && runner.HaveSimilarPosition(otherRunner))
                     {
                         runner.Dispose();
                         otherRunner.Dispose();
                     }
                 }
             }
+
+            return runners;
+        }
+
+        internal static IEnumerable<T> Each<T>(this IEnumerable<T> collection, Action<T> action = null)
+        {
+            if (action != null)
+                foreach (var element in collection)
+                    action.Invoke(element);
+            return collection;
         }
     }
 }
